@@ -1,5 +1,5 @@
 # SimpleItemBuilder
-A simple API class to create complicated ItemStacks with olny one line of Code
+A simple API class to create complicated ItemStacks with only one line of code
 > For Spigot 1.8
 
 
