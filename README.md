@@ -5,7 +5,7 @@ A simple API class to create complicated ItemStacks with olny one line of Code
 
 
 # How to use?
-* Just download the Item class [here](https://github.com/alberteisetin/SimpleItemBuilder/edit/main/README.md) and copy it into your project
+* Just download the Item class [here](https://github.com/alberteisetin/SimpleItemBuilder/blob/main/Item.java) and copy it into your project
 * done!
 
 # Features
