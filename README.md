@@ -12,7 +12,7 @@ A simple API class to create complicated ItemStacks with only one line of code
 * Create banners
 * Use player and custom skulls
 * Hide enchantments
-* Set items unbreakable _(Only for Spigot or Bukkit 1.11 and above)_
+* Set items unbreakable - _Only for Spigot (any version) or Bukkit (1.11 and above)_
 * Brew custom potions
 * Use custom enchantments
 * ...
