@@ -32,7 +32,7 @@ A simple API class to create complicated ItemStacks with only one line of code
 
 > ```java
 > // A player head
-> ItemStack playerHead = new Item(Material.SKULL_ITEM, (short) 3, Item.ItemMeta.ItemMeta).setOwner("alberteistein").build();
+> ItemStack playerHead = new Item(Material.SKULL_ITEM, (short) 3, Item.ItemMeta.SkullMeta).setOwner("alberteistein").build();
 > ```
 > ![playerHead](https://user-images.githubusercontent.com/45802535/128598647-1a5eced0-f820-4093-a2db-0daf300f526d.png)
 
