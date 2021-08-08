@@ -1,21 +1,19 @@
-package net.avoit.test;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
-import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import org.bukkit.*;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.banner.Pattern;
-import org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.*;
-import org.bukkit.material.MaterialData;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Base64;
@@ -23,21 +21,24 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Item - Simple ItemBuilder class to create a {@link ItemStack} with one line of Code
+ * A simple API class to create complicated {@link ItemStack}s with only one line of code.
  * @author alberteistein
  * @version 1.8
  */
 public class Item {
 
 	private static Class<?> craftMetaSkullClass;
+	private final static int version;
 
 	private ItemStack item;
 	private final org.bukkit.inventory.meta.ItemMeta meta;
 	private final ItemMeta itemMeta;
 
 	static {
+		String versionPackage = Bukkit.getServer().getClass().getPackage().getName().split("\\.")[3];
+		version = Integer.parseInt(versionPackage.replaceAll("[^0-9]", ""));
 		try {
-			craftMetaSkullClass = Class.forName("org.bukkit.craftbukkit." + Bukkit.getServer().getClass().getPackage().getName().split("\\.")[3] + ".inventory.CraftMetaSkull");
+			craftMetaSkullClass = Class.forName("org.bukkit.craftbukkit." + versionPackage + ".inventory.CraftMetaSkull");
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -66,11 +67,26 @@ public class Item {
 	/**
 	 * Initializes a new Item
 	 * @param material Material of the item
-	 * @param subId SubId of the item
+	 */
+	public Item(Material material, ItemMeta itemMeta) {
+		this.itemMeta = itemMeta;
+		item = new ItemStack(material);
+		meta = item.getItemMeta();
+	}
+
+	/**
+	 * Initializes a new Item
+	 * @param material Material of the item
+	 * @param subId SubId of the item (only for version 1.12.2 and below)
 	 */
 	public Item(Material material, short subId) {
 		itemMeta = ItemMeta.ItemMeta;
-		item = new ItemStack(material, 1, subId);
+		try {
+			Constructor<?> itemStackConstructor = Class.forName("org.bukkit.inventory.ItemStack").getConstructor(Material.class, int.class, short.class);
+			item = (ItemStack) itemStackConstructor.newInstance(material, 1, subId);
+		} catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+			e.printStackTrace();
+		}
 		meta = item.getItemMeta();
 	}
 
@@ -82,14 +98,19 @@ public class Item {
 	 */
 	public Item(Material material, short subId, ItemMeta itemMeta) {
 		this.itemMeta = itemMeta;
-		item = new ItemStack(material, 1, subId);
+		try {
+			Constructor<?> itemStackConstructor = Class.forName("org.bukkit.inventory.ItemStack").getConstructor(Material.class, int.class, short.class);
+			item = (ItemStack) itemStackConstructor.newInstance(material, 1, subId);
+		} catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+			e.printStackTrace();
+		}
 		meta = item.getItemMeta();
 	}
 
 	/**
 	 * Set the display name of the item
 	 * @param displayname Displayname of the item
-	 * <p>| TIP: Use color codes with <code>§</code> or {@link ChatColor}<p>
+	 * <p>| TIP: Use color codes with <code>§</code> or {@link org.bukkit.ChatColor}<p>
 	 */
 	public Item setDisplayname(String displayname) {
 		meta.setDisplayName(displayname);
@@ -101,14 +122,28 @@ public class Item {
 		return this;
 	}
 
-	@SuppressWarnings("deprecation")
+	/**
+	 * <code>Version: <= 1.12.2</code>
+	 */
 	public Item setMaterialById(int typeId) {
-		item.setTypeId(typeId);
+		if(version < 1130)
+			try {
+				Method setTypeIdMethode = item.getClass().getMethod("setTypeId", int.class);
+				setTypeIdMethode.setAccessible(true);
+				setTypeIdMethode.invoke(item, typeId);
+			} catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+				e.printStackTrace();
+			}
 		return this;
 	}
 
 	public Item setSubId(short subId) {
-		item = new ItemStack(item.getType(), item.getAmount(), subId);
+		try {
+			Constructor<?> itemStackConstructor = Class.forName("org.bukkit.inventory.ItemStack").getConstructor(Material.class, int.class, short.class);
+			item = (ItemStack) itemStackConstructor.newInstance(item.getType(), item.getAmount(), subId);
+		} catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+			e.printStackTrace();
+		}
 		return this;
 	}
 
@@ -123,7 +158,29 @@ public class Item {
 	 * Set the item unbreakable so item can no longer lose durability</small>
 	 */
 	private Item setUnbreakable(boolean unbreakable) {
-		meta.spigot().setUnbreakable(unbreakable);
+		try {
+			if(version < 1110) {
+				try {
+					Class.forName("org.spigotmc.SpigotConfig");
+				} catch (ClassNotFoundException ignored) {
+					Bukkit.getConsoleSender().sendMessage("[SimpleItemBuilder] Unbreakable items only work for Spigot or Bukkit 1.11 and above!");
+				}
+				Method spigotMethode = meta.getClass().getMethod("spigot");
+				spigotMethode.setAccessible(true);
+				Object spigot = spigotMethode.invoke(meta);
+
+				Method unbreakableMethode = spigot.getClass().getMethod("setUnbreakable", boolean.class);
+				unbreakableMethode.setAccessible(true);
+				unbreakableMethode.invoke(spigot, unbreakable);
+			} else {
+				Method unbreakableMethode = meta.getClass().getMethod("setUnbreakable", boolean.class);
+				unbreakableMethode.setAccessible(true);
+				unbreakableMethode.invoke(meta, unbreakable);
+			}
+
+		} catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+			e.printStackTrace();
+		}
 		return this;
 	}
 
@@ -174,10 +231,22 @@ public class Item {
 
 	/**
 	 * Set the durability of the item
-	 * @param durability Durability/damage <small>(0 = full, 255 = rip)</small>
+	 * @param durability Durability/damage
 	 */
-	public Item setDurability(short durability) {
-		item.setDurability(durability);
+	public Item setDurability(int durability) {
+		try {
+			if(version < 1130) {
+				Method setOwnerMethode = item.getClass().getMethod("setDurability", short.class);
+				setOwnerMethode.setAccessible(true);
+				setOwnerMethode.invoke(item, (short) durability);
+			} else {
+				Method setOwningPlayerMethode = ((Damageable) meta).getClass().getMethod("setDamage", int.class);
+				setOwningPlayerMethode.setAccessible(true);
+				setOwningPlayerMethode.invoke(meta, durability);
+			}
+		} catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+			e.printStackTrace();
+		}
 		return this;
 	}
 
@@ -189,7 +258,7 @@ public class Item {
 	/**
 	 * Set the lore/description of the item
 	 * @param lore Lore of the item
-	 * <p>| TIP: Use color codes with <code>§</code> or {@link ChatColor}<p>
+	 * <p>| TIP: Use color codes with <code>§</code> or {@link org.bukkit.ChatColor}<p>
 	 */
 	public Item setLore(String... lore) {
 		meta.setLore(Arrays.asList(lore));
@@ -199,7 +268,7 @@ public class Item {
 	/**
 	 * Set the lore/description of the item
 	 * @param lore Lore of the item
-	 * <p>| TIP: Use color codes with <code>§</code> or {@link ChatColor}<p>
+	 * <p>| TIP: Use color codes with <code>§</code> or {@link org.bukkit.ChatColor}<p>
 	 */
 	public Item setLore(List<String> lore) {
 		meta.setLore(lore);
@@ -209,11 +278,31 @@ public class Item {
 	/**
 	 * Applies the skin of a player to the skull
 	 * <p style="color: red;">The {@link ItemMeta} must have been set to {@link ItemMeta#SkullMeta}!
-	 * @param owner Player name of the skull owner
 	 */
-	public Item setOwner(String owner) {
+	public Item setOwner(UUID uuid) {
+		OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+		return setOwner(offlinePlayer);
+	}
+	/**
+	 * Applies the skin of a player to the skull
+	 * <p style="color: red;">The {@link ItemMeta} must have been set to {@link ItemMeta#SkullMeta}!
+	 */
+	public Item setOwner(OfflinePlayer offlinePlayer) {
 		if(itemMeta == ItemMeta.SkullMeta && meta instanceof SkullMeta)
-			((SkullMeta) meta).setOwner(owner);
+			if(offlinePlayer != null)
+				try {
+					if(version < 1120) {
+						Method setOwnerMethode = ((SkullMeta) meta).getClass().getMethod("setOwner", String.class);
+						setOwnerMethode.setAccessible(true);
+						setOwnerMethode.invoke(meta, offlinePlayer.getName());
+					} else {
+						Method setOwningPlayerMethode = ((SkullMeta) meta).getClass().getMethod("setOwningPlayer", OfflinePlayer.class);
+						setOwningPlayerMethode.setAccessible(true);
+						setOwningPlayerMethode.invoke(meta, offlinePlayer);
+					}
+				} catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+					e.printStackTrace();
+				}
 		return this;
 	}
 
@@ -223,7 +312,13 @@ public class Item {
 	 */
 	public Item setBaseColor(DyeColor dyeColor) {
 		if (itemMeta == ItemMeta.BannerMeta && meta instanceof BannerMeta)
-			((BannerMeta) meta).setBaseColor(dyeColor);
+			try {
+				Method setBaseColorMethode = ((BannerMeta) meta).getClass().getMethod("setBaseColor", DyeColor.class);
+				setBaseColorMethode.setAccessible(true);
+				setBaseColorMethode.invoke(meta, dyeColor);
+			} catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+				e.printStackTrace();
+			}
 		return this;
 	}
 
@@ -392,11 +487,36 @@ public class Item {
 	}
 
 	/**
+	 * <code>Version: <= 1.8.9</code>
 	 * <p style="color: red;">The {@link ItemMeta} must have been set to {@link ItemMeta#PotionMeta}!
 	 */
 	public Item setMainEffect(PotionEffectType potionEffectType) {
-		if (itemMeta == ItemMeta.PotionMeta && meta instanceof PotionMeta)
-			((PotionMeta) meta).setMainEffect(potionEffectType);
+		if(version < 190)
+			if (itemMeta == ItemMeta.PotionMeta && meta instanceof PotionMeta)
+				try {
+					Method setMainEffectMethode = ((PotionMeta) meta).getClass().getMethod("setMainEffect", PotionEffectType.class);
+					setMainEffectMethode.setAccessible(true);
+					setMainEffectMethode.invoke(meta, potionEffectType);
+				} catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+					e.printStackTrace();
+				}
+		return this;
+	}
+
+	/**
+	 * <code>Version: >= 1.9.0</code>
+	 * <p style="color: red;">The {@link ItemMeta} must have been set to {@link ItemMeta#PotionMeta}!
+	 */
+	public Item setBasePotionData(Object potionData) {
+		if(version >= 190)
+			if (itemMeta == ItemMeta.PotionMeta && meta instanceof PotionMeta)
+				try {
+					Method setBasePotionDataMethode = ((PotionMeta) meta).getClass().getMethod("setBasePotionData", Object.class);
+					setBasePotionDataMethode.setAccessible(true);
+					setBasePotionDataMethode.invoke(meta, potionData);
+				} catch (IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+					e.printStackTrace();
+				}
 		return this;
 	}
 
@@ -440,16 +560,27 @@ public class Item {
 	}
 
 	private ItemStack getSkull(String skinId) {
-		ItemStack skull = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
-		SkullMeta meta = (SkullMeta) skull.getItemMeta();
-		try {
-			Field profileField = craftMetaSkullClass.getDeclaredField("profile");
-			profileField.setAccessible(true);
-			profileField.set(meta, getProfile(skinId));
-		} catch (Exception ex) {
-			ex.printStackTrace();
+		ItemStack skull = null;
+		if(version < 1130)
+			try {
+				Constructor<?> itemStackConstructor = Class.forName("org.bukkit.inventory.ItemStack").getConstructor(Material.class, int.class, short.class);
+				skull = (ItemStack) itemStackConstructor.newInstance(Material.valueOf("SKULL_ITEM"), 1, (short) 3);
+			} catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+				e.printStackTrace();
+			}
+		else
+			skull = new ItemStack(Material.valueOf("PLAYER_HEAD"), 1);
+		if (skull != null) {
+			SkullMeta meta = (SkullMeta) skull.getItemMeta();
+			try {
+				Field profileField = craftMetaSkullClass.getDeclaredField("profile");
+				profileField.setAccessible(true);
+				profileField.set(meta, getProfile(skinId));
+			} catch (NoSuchFieldException | IllegalAccessException ex) {
+				ex.printStackTrace();
+			}
+			skull.setItemMeta(meta);
 		}
-		skull.setItemMeta(meta);
 		return skull;
 	}
 
